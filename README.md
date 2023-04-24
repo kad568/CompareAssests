@@ -28,7 +28,7 @@ For more advanced users the package is general enough to add custom indicators. 
 - main.py
 - src
     - price history
-    - comparisons
+    - technical indicators
 - docs
 - tests
 
@@ -36,12 +36,15 @@ For more advanced users the package is general enough to add custom indicators. 
 
 ### Stage 1
 - cryptocurrencies will be used as the asset class
-- RSI will be used as the technical 
+- RSI will be used as the technical indicator
 
 **to do list**
 
 - [ ] add crypto as a module within the price history package
 - [ ] add RSI as a module within the comparisons package
+
+### Stage 2
+
 
 ## Further questions and notes
 
@@ -55,7 +58,7 @@ For more advanced users the package is general enough to add custom indicators. 
 - there are overall flaws with technical analysis. Lets if technical indicators are meaningless, using more 
 of them should yield unpredictable outcomes
 
-## Where is this method applicable?
+### Where is this method applicable?
 - cryptocurrencies
     - a clear value model for cryptocurrencies is yet to be developed or may never be
     - so this addition, may help to mitigate the fundamental systematic risks of investing in this asset class
@@ -74,4 +77,3 @@ not be applicable
 - regardless, how will funds be alllocated against different asset classes
     - use a generic risk profile. for example use the market cap weighted risk profile for crypto
     - backtest this dynamic approach and find the risk profile compared to the overall asset class. Adjuestments to the generic risk profile can then be made
-
