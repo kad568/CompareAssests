@@ -1,11 +1,9 @@
-from price_history import crypto
+from price_history.crypto import (crypto_by_rank,
+                                  get_price_history)
 
 def main():
-    crypto_index_file_path = "top_5_crypto.csv"
-
-    crypto.crypto_by_rank([1, 100], crypto_index_file_path)
-    crypto_index_df = crypto.get_price_history(crypto_index_file_path)
-    print(crypto_index_df["ticker"].to_list())
+    price_history = get_price_history(crypto_by_rank, [1, 500])
+    print(price_history)
 
 if __name__ == "__main__":
     main()
