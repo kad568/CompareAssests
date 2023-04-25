@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup as bs
 import yfinance as yf
 import pandas as pd
 from sqlalchemy import create_engine, text
+from math import ceil
 
 from ._utils import (YAHOO_CRYPTO_URL, 
                     BASE_HEADERS,
@@ -55,22 +56,23 @@ def crypto_by_rank(rank_range: list) -> pd.DataFrame:
 
     offset = start_rank - 1
 
-    required_url_calls = int((end_rank - offset) / tickers_per_response)
+    required_url_calls = ceil((end_rank - offset) / tickers_per_response)
 
     crypto_index_urls = []
 
     # Create a list of all required urls
-    for url_call in range(required_url_calls):
+    for url_call in range(required_url_calls - 1):
         
         crypto_index_urls.append(f"{YAHOO_CRYPTO_URL}?"
-                                 f"offset=\{offset + url_call * tickers_per_response}&"
+                                 f"offset={offset + url_call * tickers_per_response}&"
                                  f"count={tickers_per_response}")
     
     crypto_index_urls.append(f"{YAHOO_CRYPTO_URL}?"
-                             f"offset={offset + required_url_calls * tickers_per_response}&"
-                             f"count={end_rank-offset}")
+                             f"offset={offset + (required_url_calls - 1) * tickers_per_response}&"
+                             f"count={(end_rank - offset) % tickers_per_response}")
     
-    crypto_index_df = pd.DataFrame(columns=["Name", "Ticker", "MarketCap"])
+    crypto_index_df = pd.DataFrame(columns=["Rank", "Name", "Ticker", "MarketCap"])
+    rank_counter = start_rank
 
     for url in crypto_index_urls:
         # Collect the respone content from each url
@@ -90,14 +92,16 @@ def crypto_by_rank(rank_range: list) -> pd.DataFrame:
             mc_tag_class = {'data-field': 'marketCap'}
             market_cap = crypto.find('fin-streamer', attrs=mc_tag_class)['value']
             
-            crypto_index = pd.DataFrame(data={"Name": [name], 
+            crypto_index = pd.DataFrame(data={"Rank": rank_counter,
+                                              "Name": [name], 
                                               "Ticker": [ticker], 
                                               "MarketCap": [market_cap]})
+            
+            rank_counter += 1
 
             # Add all varibles to the dataframe
             crypto_index_df = pd.concat([crypto_index_df, 
-                                         crypto_index], 
-                                         ignore_index=True)
+                                         crypto_index], ignore_index=True)
 
     return crypto_index_df
 
@@ -207,7 +211,7 @@ def check_duplicate_tickers(crypto_index_df: pd.DataFrame) -> pd.DataFrame:
 
         seen.add(crypto)
 
-    duplicates_df = pd.DataFrame(duplicates, columns=["name", "ticker", "marketCap"], ignore_index=True)
+    duplicates_df = pd.DataFrame(duplicates, columns=["Rank", "name", "ticker", "marketCap"])
             
     return duplicates_df
 
@@ -230,7 +234,7 @@ def get_price_history(search_method: object, range: list) -> list:
     engine = create_engine(f"sqlite:///{database_name}")
 
     crypto_index.to_sql("index", engine, if_exists="replace", index=False)
-    crypto_price_history.to_sql("price_history", engine, if_exists="replace", index=False)
+    crypto_price_history.to_sql("price_history", engine, if_exists="replace", index=True)
 
     return crypto_price_history
 
