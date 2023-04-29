@@ -2,8 +2,10 @@ from requests import Session
 from bs4 import BeautifulSoup as bs
 import yfinance as yf
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from math import ceil
+import matplotlib.pyplot as plt
+import numpy as np
 
 from ._utils import (YAHOO_CRYPTO_URL, 
                     BASE_HEADERS,
@@ -238,13 +240,18 @@ def get_price_history(search_method: object, range: list) -> list:
 
     return crypto_price_history
 
+def read_price_history(database_path: str):
 
+    engine = create_engine(f"sqlite:///{database_path}")
+    
+    with engine.connect() as connection:
+        price_history = pd.read_sql_table("price_history", connection)
+        price_history = price_history.dropna()
 
+        crypto_index = pd.read_sql_table("index", connection)
+        crypto_index = crypto_index.dropna()
 
-# use an SQL data base rather than csv files - DONE
-# link index to crypto price history table
+    price_history = price_history.sort_values(by=["Ticker"])
 
-
-# backtesting function
-# chart visualiser
+    return crypto_index, price_history
     
