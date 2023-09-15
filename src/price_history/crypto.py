@@ -4,10 +4,10 @@ import yfinance as yf
 import pandas as pd
 from sqlalchemy import create_engine
 from math import ceil
-import matplotlib.pyplot as plt
-import numpy as np
+import json
+from pathlib import Path
 
-from ._utils import (YAHOO_CRYPTO_URL, 
+from ._price_history_utils import (YAHOO_CRYPTO_URL, 
                     BASE_HEADERS,
                     SOUP_PARSER)
 
@@ -104,7 +104,7 @@ def crypto_by_rank(rank_range: list) -> pd.DataFrame:
             # Add all varibles to the dataframe
             crypto_index_df = pd.concat([crypto_index_df, 
                                          crypto_index], ignore_index=True)
-
+            
     return crypto_index_df
 
 
@@ -218,7 +218,7 @@ def check_duplicate_tickers(crypto_index_df: pd.DataFrame) -> pd.DataFrame:
     return duplicates_df
 
 
-def get_price_history(search_method: object, range: list) -> list:
+def get_price_history(search_method: object, range: list, database_name: str) -> list:
     """
     Returns the price history for each crypto from an input file.
 
@@ -232,7 +232,6 @@ def get_price_history(search_method: object, range: list) -> list:
     crypto_price_history = yf.download(tickers, group_by='Ticker', auto_adjust=True)
     crypto_price_history = crypto_price_history.stack(level=0).rename_axis(['Date', 'Ticker']).reset_index(level=1)
 
-    database_name = "test.db"
     engine = create_engine(f"sqlite:///{database_name}")
 
     crypto_index.to_sql("index", engine, if_exists="replace", index=False)
@@ -246,12 +245,117 @@ def read_price_history(database_path: str):
     
     with engine.connect() as connection:
         price_history = pd.read_sql_table("price_history", connection)
-        price_history = price_history.dropna()
+        price_history = price_history.sort_values(by=["Date"])
+
+        price_history = price_history.groupby("Ticker")
 
         crypto_index = pd.read_sql_table("index", connection)
         crypto_index = crypto_index.dropna()
 
-    price_history = price_history.sort_values(by=["Ticker"])
+    return (crypto_index, price_history)
 
-    return crypto_index, price_history
+def get_categories(save = True, save_location = "."):
+    """
+    gets the crypto categories listed on coinmarketcap.com
+
+    :param: save Option to save categories to a json file
+    """
     
+    with open("./price_history/coinmarketcap_api_key.txt", "r") as file:
+        api_key = file.read()
+
+    coinmarketcap_api_url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/categories'
+
+    headers = {
+    'Accepts': 'application/json',
+    'X-CMC_PRO_API_KEY': api_key,
+    }
+
+    session = Session()
+
+    session.headers.update(headers)
+
+    response = session.get(coinmarketcap_api_url)
+
+    data = json.loads(response.text)
+
+    # extract and format data
+
+    crypto_categories = {"name": [], 
+                         "id": []}
+
+    for category in data["data"]:
+        category_name = category["name"]
+        crypto_categories["name"].append(category_name)
+
+        category_id = category["id"]
+        crypto_categories["id"].append(category_id)
+        
+        category_id, category_name = None, None
+
+    crypto_categories_df = pd.DataFrame(data=crypto_categories)
+
+    def _save(location: str = "."):
+
+        crypto_categories_json = crypto_categories_df.to_json()
+
+        with open(f"{location}/crypto_categories.json", "w") as file:
+            json.dump(crypto_categories_json, file)
+
+    if save:
+        _save(save_location)
+    
+    return crypto_categories_df
+
+
+def crypto_by_category(crypto_categories_df: pd.DataFrame, category_id: str):
+
+
+    with open("./price_history/coinmarketcap_api_key.txt", "r") as file:
+        api_key = file.read()
+
+    coinmarketcap_api_url = f'https://pro-api.coinmarketcap.com/v1/cryptocurrency/category?id={category_id}'
+
+    headers = {
+    'Accepts': 'application/json',
+    'X-CMC_PRO_API_KEY': api_key,
+    }
+
+    session = Session()
+
+    session.headers.update(headers)
+
+    response = session.get(coinmarketcap_api_url)
+
+    data = json.loads(response.text)
+
+    print(data)
+
+    for 
+
+        # add each to df
+        # crypto_categories_df.
+
+    # category_ids = data["data"]["id"]
+    # category_names = data["data"]["name"]
+
+    # crypto_categories = pd.DataFrame(data={
+    #     "name": category_names,
+    #     "id": category_ids
+    #     }
+    # )
+
+    # print(crypto_categories)
+
+#     if save:
+#             with open("crypto_categories.json", "w") as file:
+#                 json.dump(data, file)
+
+# def _load_categories():
+
+#     with open("crypto_categories.json", "r") as file:
+#         data = json.loads(file.read())
+#         print(data["data"][0])
+#     return data
+
+#     _load_categories()
