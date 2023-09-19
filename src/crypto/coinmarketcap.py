@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import requests
 import pandas as pd
+import time
 
 # general functions
 
@@ -35,9 +36,6 @@ def crypto_map():
 
     return crypto_map_df
 
-# crypto_map_df = crypto_map()
-# df_to_json_file(crypto_map_df, "crypto_map.json")
-
 def exchange_map():
 
     cmc_exchange_url = "https://s3.coinmarketcap.com/generated/core/exchange/exchanges.json"
@@ -51,10 +49,6 @@ def exchange_map():
     exchange_map_df = pd.DataFrame(columns=df_columns, data=df_data)
 
     return exchange_map_df
-
-# exchange_map_json_str = exchange_map().to_json(orient="records")
-# exchange_map_json = json.loads(exchange_map_json_str)
-# save_json_to_file(exchange_map_json, "exchange_map.json")
 
 def category_map():
     
@@ -76,10 +70,6 @@ def category_map():
     data = pd.DataFrame(data=data)
 
     return data
-
-categories_df = category_map()
-df_to_json_file(categories_df, "categories_map.json")
-
 
 # Technical data
 
@@ -108,15 +98,14 @@ def category_data(category_id):
     response = requests.get(cmc_categories_url, headers=headers)
 
     data = json.loads(response.text)
-    coins = data["data"]["coins"]
-    del data["data"]["coins"]
-    overview = data["data"]
+    data = data["data"]
 
-    coins = pd.DataFrame(data=coins)
+    data = pd.DataFrame(data=[data])
 
-    return coins, overview
+    return data
 
-coins, _ = category_data("60308028d2088f200c58a005")
+# coins, overview = category_data("60308028d2088f200c58a005")
+# print(overview)
 # print(coins.columns)
 # Index(['id', 'name', 'symbol', 'slug', 'num_market_pairs', 'date_added',
 #        'tags', 'max_supply', 'circulating_supply', 'total_supply', 'platform',
@@ -125,10 +114,38 @@ coins, _ = category_data("60308028d2088f200c58a005")
 #        'tvl_ratio', 'last_updated', 'quote'],
 #       dtype='object')
 
-print(coins["tags"].head())
-
 def tags():
     ...
 
 def no_markets():
     ...
+
+
+if __name__ == "__main__":
+
+    category_map_df = pd.read_json("categories_map.json", orient="records")
+    id = category_map_df["id"]
+    counter = 1
+    category_df = pd.DataFrame()
+    for _id in id: 
+        x = category_data(_id)
+        print(f"{counter} / {len(id)}")
+        counter  = counter + 1
+        time.sleep(3)
+        category_df = pd.concat([category_df, x], ignore_index=True)
+
+
+    # print(len(category_df))
+
+    # df_to_json_file(category_df, "full_category_map.json")
+
+    # print(pd.read_json("full_category_map.json"))
+
+    # Assuming 'json_data' contains your JSON data as a string
+
+    with open("full_category_map.json", "r") as file:
+        data = json.loads(file.read())
+    
+    x = pd.DataFrame(data=data)
+
+    print(x["coins"][0][0]["tags"])
