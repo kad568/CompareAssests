@@ -7,6 +7,8 @@ from enum import Enum
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter, FuncFormatter
 from matplotlib.dates import AutoDateLocator, DateFormatter
+import sqlite3
+from pathlib import Path
 
 # general functions
 
@@ -109,6 +111,41 @@ def category_map():
 
     return data
 
+###################### new + refractored code ########################
+
+def get_crypto_info():
+    """
+    gets the general crypto info data:
+
+    - id
+    - name
+    - symbol
+    - ...
+    """
+    ...
+
+def create_crypto_info_database(file_path: Path, file_name: str = "crypto_data.db"):
+    """
+    Creates a database for the data produced by get_crypto_info().
+    """
+
+    complete_file_path = file_path / file_name
+
+    conn = sqlite3.connect(complete_file_path)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE crypto_info (
+            crypto_id INTEGER PRIMARY KEY,
+            name TEXT,
+            symbol TEXT
+            ADD MORE TO THESE. CHECK WHICH DATA I NEED / WANT
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
 class Range_options(Enum):
 
     DAILY = "1D"
@@ -117,8 +154,15 @@ class Range_options(Enum):
     YEARLY = "1Y"
     ALL = "ALL"
 
-
-def get_price_history(coin_id: int, range: str = Range_options.ALL.value):
+def get_all_close_price_history(coin_id: int, range: str = Range_options.ALL.value):
+    """
+    Produces pandas dataframe of the price history of a given crypto with the following columns:
+    - close usd
+    - volume usd
+    - marketcap usd
+    - fixed supply (yes or no)
+    - token supply
+    """
 
     # set up request
     cmc_chart_api_base = "https://api.coinmarketcap.com/data-api/v3/cryptocurrency/detail/chart"
@@ -150,7 +194,7 @@ def get_price_history(coin_id: int, range: str = Range_options.ALL.value):
     price_history_df = pd.DataFrame(chart_data)
 
     # Unpack "chart_data_list" into separate columns
-    price_history_df[["price_usd", "volume_usd", "mc_usd", "fixed_supply", "supply"]] = price_history_df["chart_data_list"].apply(pd.Series)
+    price_history_df[["close_usd", "volume_usd", "mc_usd", "fixed_supply", "supply"]] = price_history_df["chart_data_list"].apply(pd.Series)
 
     # Convert Unix timestamp to datetime
     price_history_df['unix_timestamp'] = pd.to_datetime(price_history_df['unix_timestamp'], unit='s')
@@ -160,6 +204,41 @@ def get_price_history(coin_id: int, range: str = Range_options.ALL.value):
 
     return price_history_df
 
+def create_all_price_history_database(file_path: Path, file_name: str = "crypto_data.db"):
+    """
+    Creates a database for the data produced by get_price_history().
+    """
+
+    # create the compolete file path for the database
+    complete_file_path = file_path / file_name
+
+    # Connect to the SQLite database (or create it if it doesn't exist)
+    conn = sqlite3.connect(complete_file_path)
+
+    # Create a cursor object to execute SQL queries
+    cursor = conn.cursor()
+
+    # Create the table
+    cursor.execute('''
+        CREATE TABLE all_close_price_history (
+            DataID INTEGER PRIMARY KEY,
+            crypto_id INTEGER,
+            unix_timestamp INTEGER
+            close REAL,
+            volume REAL,
+            marketcap REAL,
+            fixed_supply INTEGER
+            FOREIGN KEY (crypto_id) REFERENCES crypto_info(crypto_id)
+        )
+    ''')
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+# save df to db
+
+# db for all prices
 
 
     # chart_data_temp = []
@@ -236,7 +315,7 @@ def no_markets():
 
 def main():
 
-    btc_price_history = get_price_history(1027)
+    btc_price_history = get_all_close_price_history(1)
 
     time_stamp = btc_price_history["unix_timestamp"]
     price = btc_price_history["price_usd"]
