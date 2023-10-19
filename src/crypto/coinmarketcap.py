@@ -32,9 +32,9 @@ def df_to_json_file(data: pd.DataFrame, file_name: str, file_destination: str = 
 
 def crypto_map():
     
-    cmc_cryptos_url = "https://s3.coinmarketcap.com/generated/core/crypto/cryptos.json"
+    cmc_cryptos_map_url = "https://s3.coinmarketcap.com/generated/core/crypto/cryptos.json"
 
-    cryptos_request = requests.get(cmc_cryptos_url)
+    cryptos_request = requests.get(cmc_cryptos_map_url)
 
     cryptos_request = json.loads(cryptos_request.text)
 
@@ -112,6 +112,50 @@ def category_map():
     return data
 
 ###################### new + refractored code ########################
+
+def get_coinmarketcap_id_map(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt"):
+    
+    cmc_api_key_path = cmc_api_key_path / cmc_api_key_file_name
+    with open(cmc_api_key_path, "r") as file:
+        api_key = file.read()
+
+    coinmarketcap_id_map_api_url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/map"
+
+    headers = {
+    'Accepts': 'application/json',
+    'X-CMC_PRO_API_KEY': api_key,
+    }
+
+    params = {
+        "listing_status": "active,inactive",
+        "sort": "cmc_rank",
+    }
+
+    response = requests.get(coinmarketcap_id_map_api_url, headers=headers, params=params)
+
+    id_map_data: dict = response.json()
+    id_map_data = id_map_data["data"]
+
+    # to do
+    # make a platform db
+    # replace platform data and add it to platform database
+    id_map_data = pd.DataFrame(id_map_data)
+
+    # for col in id_map_data:
+    #     print(col, id_map_data[col][2000])
+
+    # # unpack relevant json data into a list of chart data records
+    # chart_data: dict = chart_api_request.json()
+    # chart_data = chart_data["data"]["points"]
+    # chart_data = [
+    #     {"unix_timestamp": unix_timestamp, "chart_data_list": point_data["v"]} 
+    #     for unix_timestamp, point_data in chart_data.items() 
+    # ]
+
+    
+
+def get_coinmarketcap_listing_latest():
+    ...
 
 def get_crypto_info():
     """
@@ -315,7 +359,7 @@ def no_markets():
 
 def main():
 
-    btc_price_history = get_all_close_price_history(1)
+    btc_price_history = get_all_close_price_history(14)
 
     time_stamp = btc_price_history["unix_timestamp"]
     price = btc_price_history["price_usd"]
@@ -350,4 +394,15 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    crypto_info = crypto_map()
+
+    #  print(crypto_info.columns)
+    #  for col in crypto_info.columns:
+    #  print(crypto_info[col][0]) 
+    # filtered_crypto_info = crypto_info[crypto_info['is_active'] == 0]
+
+    # print(len(filtered_crypto_info))
+
+    # main()
+    
+    get_coinmarketcap_id_map()
