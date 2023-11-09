@@ -128,7 +128,6 @@ def get_coinmarketcap_id_map(cmc_api_key_path: Path = Path("."), cmc_api_key_fil
 
     params = {
         "listing_status": "active,inactive",
-        "sort": "cmc_rank",
     }
 
     response = requests.get(coinmarketcap_id_map_api_url, headers=headers, params=params)
@@ -136,59 +135,171 @@ def get_coinmarketcap_id_map(cmc_api_key_path: Path = Path("."), cmc_api_key_fil
     id_map_data: dict = response.json()
     id_map_data = id_map_data["data"]
 
+
+    id_map_data: pd.DataFrame = pd.DataFrame(id_map_data)
+
+    platfrom = pd.json_normalize(id_map_data["platform"]).set_index("id")
+
+    id_map_data = id_map_data.drop(columns="platform")
+
+    return id_map_data, platfrom
+
     # to do
     # make a platform db
     # replace platform data and add it to platform database
-    id_map_data = pd.DataFrame(id_map_data)
 
-    # for col in id_map_data:
-    #     print(col, id_map_data[col][2000])
+def create_coinmarketcap_platform_map_table(file_path: str = ".", file_name: str = "crypto_data.db"):
 
-    # # unpack relevant json data into a list of chart data records
-    # chart_data: dict = chart_api_request.json()
-    # chart_data = chart_data["data"]["points"]
-    # chart_data = [
-    #     {"unix_timestamp": unix_timestamp, "chart_data_list": point_data["v"]} 
-    #     for unix_timestamp, point_data in chart_data.items() 
-    # ]
 
-    
+    # create the compolete file path for the database
+    complete_file_path = Path(file_path) / file_name
 
-def get_coinmarketcap_listing_latest():
-    ...
-
-def get_crypto_info():
-    """
-    gets the general crypto info data:
-
-    - id
-    - name
-    - symbol
-    - ...
-    """
-    ...
-
-def create_crypto_info_database(file_path: Path, file_name: str = "crypto_data.db"):
-    """
-    Creates a database for the data produced by get_crypto_info().
-    """
-
-    complete_file_path = file_path / file_name
-
+    # Connect to the SQLite database (or create it if it doesn't exist)
     conn = sqlite3.connect(complete_file_path)
+
+    # Create a cursor object to execute SQL queries
     cursor = conn.cursor()
 
+    # Create the table
     cursor.execute('''
-        CREATE TABLE crypto_info (
-            crypto_id INTEGER PRIMARY KEY,
-            name TEXT,
-            symbol TEXT
-            ADD MORE TO THESE. CHECK WHICH DATA I NEED / WANT
+        CREATE TABLE cmc_platform_map (
+            pltaform_map_id INTEGER PRIMARY KEY,
+            asset_id INTEGER,
+            platform_assest_id INTEGER
+            FOREIGN KEY (asset_id) REFERENCES cmc_id_map(asset_id)
+            FOREIGN KEY (platform_assest_id) REFERENCES cmc_id_map(asset_id)
         )
     ''')
 
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()  
+
+cmc_platform_table_name = "cmc_platform_map"
+
+create_platform_map_query = f'''
+        CREATE TABLE IF NOT EXISTS {cmc_platform_table_name} (
+            pltaform_map_id INTEGER PRIMARY KEY,
+            asset_id INTEGER,
+            platform_assest_id INTEGER
+            FOREIGN KEY (asset_id) REFERENCES cmc_id_map(asset_id)
+            FOREIGN KEY (platform_assest_id) REFERENCES cmc_id_map(asset_id)
+        )
+    '''
+
+cmc_id_map_table_name = "cmc_id_map"
+
+create_id_map_query = f'''
+        CREATE TABLE IF NOT EXISTS {cmc_id_map_table_name} (
+            assest_id INTEGER PRIMARY KEY,
+            rank INTEGER,
+            name TEXT,
+            symbol TEXT,
+            slug TEXT,
+            is_active INTEGER,
+            first_historical_data TEXT,
+            last_historical_data TEXT
+        )
+    '''
+
+def create_coinmarketcap_id_map_table(file_path: str = ".", file_name: str = "crypto_data.db"):
+    # create the compolete file path for the database
+    complete_file_path = Path(file_path) / file_name
+
+    # Connect to the SQLite database (or create it if it doesn't exist)
+    conn = sqlite3.connect(complete_file_path)
+
+    # Create a cursor object to execute SQL queries
+    cursor = conn.cursor()
+
+    # Create the table
+    cursor.execute('''
+        CREATE TABLE cmc_id_map (
+            assest_id INTEGER PRIMARY KEY,
+            rank INTEGER,
+            name TEXT,
+            symbol TEXT,
+            slug TEXT,
+            is_active INTEGER,
+            first_historical_data TEXT,
+            last_historical_data TEXT
+        )
+    ''')
+
+    # Commit the changes and close the connection
     conn.commit()
     conn.close()
+
+def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 10):
+
+    cmc_api_key_path = cmc_api_key_path / cmc_api_key_file_name
+    with open(cmc_api_key_path, "r") as file:
+        api_key = file.read()
+
+    coinmarketcap_latest_listing_api_url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
+
+    headers = {
+        'Accepts': 'application/json',
+        'X-CMC_PRO_API_KEY': api_key,
+    }
+
+    params = {
+        'limit': limit, 
+    }
+
+    response = requests.get(coinmarketcap_latest_listing_api_url, headers=headers, params=params)
+
+    latest_listing_data: dict = response.json()
+    latest_listing_data = latest_listing_data["data"]
+
+
+    latest_listing_data: pd.DataFrame = pd.DataFrame(latest_listing_data)
+
+    return latest_listing_data
+
+def create_coinmarketcap_listing_latest_database(file_path: str = ".", file_name: str = "crypto_data.db"):
+    """
+    Creates a database for the data produced by get_coinmarketcap_listing_latest().
+    """
+
+    # create the compolete file path for the database
+    complete_file_path = Path(file_path) / file_name
+
+    # Connect to the SQLite database (or create it if it doesn't exist)
+    conn = sqlite3.connect(complete_file_path)
+
+    # Create a cursor object to execute SQL queries
+    cursor = conn.cursor()
+
+    # Create the table
+    cursor.execute('''
+        CREATE TABLE latest_crypto_info (
+            crypto_id INTEGER PRIMARY KEY,
+            name TEXT,
+            symbol TEXT,
+            slug TEXT,
+            num_market_pairs INTEGER,
+            date_added TEXT,
+            tags INTEGER, # should be a secondary key
+            max_supply REAL,
+            circulating_supply REAL,
+            total_supply REAL,
+            infinite_supply INTEGER,
+            platform # should be a secondary key
+            cmc_rank INTEGER,
+            self_reported_circulating_supply REAL,
+            self_reported_market_cap REAL,
+            tvl_ratio REAL,
+            last_updated TEXT,
+            quote INTEGER # should be a secondary key linking to another db
+        )
+    ''')
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+    # when data is made
 
 class Range_options(Enum):
 
@@ -280,84 +391,27 @@ def create_all_price_history_database(file_path: Path, file_name: str = "crypto_
     conn.commit()
     conn.close()
 
-# save df to db
-
-# db for all prices
-
-
-    # chart_data_temp = []
-    # price_history_df = pd.DataFrame
-
-    # for data_point in chart_data:
-    #     chart_data_point = chart_data["v"]
-
-    #     unix_timestamp = data_point
-    #     price_usd, volume_usd, mc_usd, fixed_supply, supply = chart_data_point
-
-    #     list_entry = {
-    #         "unix_timestamp": unix_timestamp,
-    #         "price_usd": price_usd,
-    #         "volume_usd": volume_usd,
-    #         "mc_usd": mc_usd,
-    #         "fixed_supply": fixed_supply,
-    #         "supply": supply
-    #     }
-    #     chart_data_temp
-
-    # # unpackage response data
-    # print(len(chart_data["points"]))
-
-    
-
-
-## category functions
-
-# get crypto by tags function
-
-# print all tags and category names functions
-
-# get crypto by category function
-
-# be able to combine tag and category search
-
-## chart data functions
-
-# yahoo finance chart data
-# get tickers with id from website
-# get chart data with yfinance
-
-## v3 api chart data
-
-# get all chart data 
-
-## other
-
-# max suppy data
-
-# no of markets
-
-########## data management ##########
-
-# split df/db int
-
-# Technical data
-
-def ohlc_chart_data():
-    ...
-
-def close_chart_data():
-    ...
-
-def max_supply():
-    ...
-
-def crypto_by_tag():
-    ...
-
-def no_markets():
-    ...
 
 def main():
+
+    db_file_path = "."
+    db_name = "crypto_data.db"
+    db_file = Path(db_file_path) / db_name
+
+    # get id_map_data
+    id_map, platform = get_coinmarketcap_id_map()
+
+    print(platform)
+
+    # # populate both tables
+    # with sqlite3.connect(db_file) as conn:
+
+    #     id_map.to_sql(cmc_id_map_table_name, conn, if_exists="replace", index=False, schema=create_id_map_query)
+    #     platform.to_sql(cmc_platform_table_name, conn, if_exists="replace", index=False, schema=create_platform_map_query)
+
+
+
+def main2():
 
     btc_price_history = get_all_close_price_history(14)
 
@@ -389,20 +443,24 @@ def main():
     plt.tight_layout()
     plt.show()
 
-
-
-
 if __name__ == "__main__":
 
-    crypto_info = crypto_map()
-
-    #  print(crypto_info.columns)
-    #  for col in crypto_info.columns:
-    #  print(crypto_info[col][0]) 
+    # crypto_info = crypto_map()
+    # print(len(crypto_info))
+    # print(crypto_info.columns)
+    # for col in crypto_info.columns:
+    #     print(crypto_info[col][0]) 
     # filtered_crypto_info = crypto_info[crypto_info['is_active'] == 0]
 
     # print(len(filtered_crypto_info))
 
-    # main()
-    
-    get_coinmarketcap_id_map()
+    main()
+    # crypto_id_map = get_coinmarketcap_id_map()
+    # print(crypto_id_map.columns)
+    # print(crypto_id_map)
+    # print(len(crypto_id_map))
+
+    # latest_listing = get_coinmarketcap_listing_latest()
+    # print(latest_listing)
+    # print(latest_listing.columns)
+    # print(len(latest_listing))
