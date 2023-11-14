@@ -135,10 +135,7 @@ def get_coinmarketcap_id_map(cmc_api_key_path: Path = Path("."), cmc_api_key_fil
     id_map_data: dict = response.json()
     id_map_data = id_map_data["data"]
 
-
     id_map_data: pd.DataFrame = pd.DataFrame(id_map_data)
-
-    platfrom = pd.json_normalize(id_map_data["platform"]).set_index("id")
 
     id_map_data = id_map_data.drop(columns="platform")
 
@@ -230,7 +227,7 @@ def create_coinmarketcap_id_map_table(file_path: str = ".", file_name: str = "cr
     conn.commit()
     conn.close()
 
-def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 10):
+def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 5000):
 
     cmc_api_key_path = cmc_api_key_path / cmc_api_key_file_name
     with open(cmc_api_key_path, "r") as file:
@@ -399,11 +396,17 @@ def main():
     db_file = Path(db_file_path) / db_name
 
     # get id_map_data
-    id_map, platform = get_coinmarketcap_id_map()
+    # id_map, platform = get_coinmarketcap_id_map()
 
-    print(platform)
+    x = get_coinmarketcap_listing_latest()
 
-    # # populate both tables
+    # print(x[x["id"] == 1975]["tags"].values)
+
+    # print(platform)
+    # possibly use a recusion function to find and normalise all 
+    # platform df should take id as well, then explode and store this data
+
+    # populate both tables
     # with sqlite3.connect(db_file) as conn:
 
     #     id_map.to_sql(cmc_id_map_table_name, conn, if_exists="replace", index=False, schema=create_id_map_query)
