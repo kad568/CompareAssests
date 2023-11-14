@@ -136,53 +136,13 @@ def get_coinmarketcap_id_map(cmc_api_key_path: Path = Path("."), cmc_api_key_fil
     id_map_data = id_map_data["data"]
 
     id_map_data: pd.DataFrame = pd.DataFrame(id_map_data)
-
     id_map_data = id_map_data.drop(columns="platform")
 
-    return id_map_data, platfrom
+    return id_map_data
 
     # to do
     # make a platform db
     # replace platform data and add it to platform database
-
-def create_coinmarketcap_platform_map_table(file_path: str = ".", file_name: str = "crypto_data.db"):
-
-
-    # create the compolete file path for the database
-    complete_file_path = Path(file_path) / file_name
-
-    # Connect to the SQLite database (or create it if it doesn't exist)
-    conn = sqlite3.connect(complete_file_path)
-
-    # Create a cursor object to execute SQL queries
-    cursor = conn.cursor()
-
-    # Create the table
-    cursor.execute('''
-        CREATE TABLE cmc_platform_map (
-            pltaform_map_id INTEGER PRIMARY KEY,
-            asset_id INTEGER,
-            platform_assest_id INTEGER
-            FOREIGN KEY (asset_id) REFERENCES cmc_id_map(asset_id)
-            FOREIGN KEY (platform_assest_id) REFERENCES cmc_id_map(asset_id)
-        )
-    ''')
-
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()  
-
-cmc_platform_table_name = "cmc_platform_map"
-
-create_platform_map_query = f'''
-        CREATE TABLE IF NOT EXISTS {cmc_platform_table_name} (
-            pltaform_map_id INTEGER PRIMARY KEY,
-            asset_id INTEGER,
-            platform_assest_id INTEGER
-            FOREIGN KEY (asset_id) REFERENCES cmc_id_map(asset_id)
-            FOREIGN KEY (platform_assest_id) REFERENCES cmc_id_map(asset_id)
-        )
-    '''
 
 cmc_id_map_table_name = "cmc_id_map"
 
@@ -198,34 +158,6 @@ create_id_map_query = f'''
             last_historical_data TEXT
         )
     '''
-
-def create_coinmarketcap_id_map_table(file_path: str = ".", file_name: str = "crypto_data.db"):
-    # create the compolete file path for the database
-    complete_file_path = Path(file_path) / file_name
-
-    # Connect to the SQLite database (or create it if it doesn't exist)
-    conn = sqlite3.connect(complete_file_path)
-
-    # Create a cursor object to execute SQL queries
-    cursor = conn.cursor()
-
-    # Create the table
-    cursor.execute('''
-        CREATE TABLE cmc_id_map (
-            assest_id INTEGER PRIMARY KEY,
-            rank INTEGER,
-            name TEXT,
-            symbol TEXT,
-            slug TEXT,
-            is_active INTEGER,
-            first_historical_data TEXT,
-            last_historical_data TEXT
-        )
-    ''')
-
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()
 
 def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 5000):
 
@@ -252,51 +184,33 @@ def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api
 
     latest_listing_data: pd.DataFrame = pd.DataFrame(latest_listing_data)
 
+    latest_listing_data = latest_listing_data.drop(columns=["platform", "quote", "tags"])
+
+    # create new tags table and link to two 
+
     return latest_listing_data
 
-def create_coinmarketcap_listing_latest_database(file_path: str = ".", file_name: str = "crypto_data.db"):
-    """
-    Creates a database for the data produced by get_coinmarketcap_listing_latest().
-    """
+latest_listing_table_name = "cmc_latest_listings"
 
-    # create the compolete file path for the database
-    complete_file_path = Path(file_path) / file_name
-
-    # Connect to the SQLite database (or create it if it doesn't exist)
-    conn = sqlite3.connect(complete_file_path)
-
-    # Create a cursor object to execute SQL queries
-    cursor = conn.cursor()
-
-    # Create the table
-    cursor.execute('''
-        CREATE TABLE latest_crypto_info (
-            crypto_id INTEGER PRIMARY KEY,
+create_latest_listing_table_query = f'''
+        CREATE TABLE {latest_listing_table_name} (
+            crypto_id REAL PRIMARY KEY,
             name TEXT,
             symbol TEXT,
             slug TEXT,
-            num_market_pairs INTEGER,
+            num_market_pairs REAL,
             date_added TEXT,
-            tags INTEGER, # should be a secondary key
             max_supply REAL,
             circulating_supply REAL,
             total_supply REAL,
-            infinite_supply INTEGER,
-            platform # should be a secondary key
-            cmc_rank INTEGER,
+            infinite_supply TEXT,
+            cmc_rank REAL,
             self_reported_circulating_supply REAL,
             self_reported_market_cap REAL,
             tvl_ratio REAL,
             last_updated TEXT,
-            quote INTEGER # should be a secondary key linking to another db
         )
-    ''')
-
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()
-
-    # when data is made
+    '''
 
 class Range_options(Enum):
 
@@ -305,6 +219,9 @@ class Range_options(Enum):
     MONTHLY = "1M"
     YEARLY = "1Y"
     ALL = "ALL"
+
+
+
 
 def get_all_close_price_history(coin_id: int, range: str = Range_options.ALL.value):
     """
@@ -396,21 +313,15 @@ def main():
     db_file = Path(db_file_path) / db_name
 
     # get id_map_data
-    # id_map, platform = get_coinmarketcap_id_map()
+    id_map = get_coinmarketcap_id_map()
 
-    x = get_coinmarketcap_listing_latest()
-
-    # print(x[x["id"] == 1975]["tags"].values)
-
-    # print(platform)
-    # possibly use a recusion function to find and normalise all 
-    # platform df should take id as well, then explode and store this data
+    latest_listing = get_coinmarketcap_listing_latest()
 
     # populate both tables
-    # with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file) as conn:
 
-    #     id_map.to_sql(cmc_id_map_table_name, conn, if_exists="replace", index=False, schema=create_id_map_query)
-    #     platform.to_sql(cmc_platform_table_name, conn, if_exists="replace", index=False, schema=create_platform_map_query)
+        id_map.to_sql(cmc_id_map_table_name, conn, if_exists="replace", index=False, schema=create_id_map_query)
+        latest_listing.to_sql(latest_listing_table_name, conn, if_exists="replace", index=False, schema=create_latest_listing_table_query)
 
 
 
