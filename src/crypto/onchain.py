@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup as bs
 import chompjs
 import matplotlib.pyplot as plt
 from datetime import datetime
+from scipy import stats
+import numpy as np
 
 
 CHAIN_EXPOSED_BASE_URL = "https://chainexposed.com"
@@ -29,10 +31,9 @@ def get_short_term_holder_realised_price_histroty():
     STH_price_df["date"] = pd.to_datetime(STH_price_df["date"])
     STH_price_df["STH_price"] = pd.to_numeric(STH_price_df["STH_price"])
 
-    difference = (price_data_df["price"] - STH_price_df["STH_price"]) / price_data_df["price"]
-    print(difference)
+    difference = stats.zscore((price_data_df["price"] - STH_price_df["STH_price"]) / price_data_df["price"])
 
-  # plot price_data
+  # plot price and STH
     plt.subplot(2, 1, 1)
     plt.plot(price_data_df["date"], price_data_df["price"])
     plt.plot(STH_price_df["date"], STH_price_df["STH_price"])
