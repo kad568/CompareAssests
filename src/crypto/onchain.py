@@ -54,6 +54,29 @@ def get_long_term_holder_realised_price_history():
 
     return price_data_df, LTH_price_df
 
+def get_percent_supply_in_profit():
+
+    percent_supply_in_profit_url = f"{CHAIN_EXPOSED_BASE_URL}/XthInProfitPct.html"
+
+
+    response = requests.get(percent_supply_in_profit_url)
+    soup = bs(response.text, "html.parser")
+    scripts = soup.find_all('script')
+    plot_script_raw = scripts[5].text
+    plot_data_dict = list(chompjs.parse_js_objects(plot_script_raw)) 
+
+    STH_data = plot_data_dict[3]
+    STH_df = pd.DataFrame(data={"STH 7D MA": STH_data["y"], "date": STH_data["x"]})
+    STH_df["date"] = pd.to_datetime(STH_df["date"])
+    STH_df["STH 7D MA"] = pd.to_numeric(STH_df["STH 7D MA"])
+
+    LTH_data = plot_data_dict[4]
+    LTH_df = pd.DataFrame(data={"LTH 7D MA": LTH_data["y"], "date": LTH_data["x"]})
+    LTH_df["date"] = pd.to_datetime(LTH_df["date"])
+    LTH_df["LTH 7D MA"] = pd.to_numeric(LTH_df["LTH 7D MA"])
+
+    return STH_df, LTH_df
+ 
 
 def plot_STH_LTH(price_df, realised_price_df, type):
 
@@ -75,9 +98,16 @@ def plot_STH_LTH(price_df, realised_price_df, type):
 def run_script():
 
     # price_1, STH_price_history = get_short_term_holder_realised_price_history()
-    price_2, LTH_price_history = get_long_term_holder_realised_price_history()
+    # price_2, LTH_price_history = get_long_term_holder_realised_price_history()
 
-    plot_STH_LTH(price_2, LTH_price_history, "LTH")
+    # plot_STH_LTH(price_2, LTH_price_history, "LTH")
+    # plot_STH_LTH(price_1, STH_price_history, "STH")
+
+    STH_df,LTH_df = get_percent_supply_in_profit()
+    
+    plt.plot(STH_df["date"], STH_df["STH 7D MA"])
+    plt.plot(LTH_df["date"], LTH_df["LTH 7D MA"])
+    plt.show()
 
 if __name__ == "__main__":
     run_script()
