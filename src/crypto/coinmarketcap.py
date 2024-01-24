@@ -9,6 +9,8 @@ from matplotlib.ticker import ScalarFormatter, FuncFormatter
 from matplotlib.dates import AutoDateLocator, DateFormatter
 import sqlite3
 from pathlib import Path
+import numpy as np
+import matplotlib.dates as mdates
 
 # general functions
 
@@ -159,7 +161,7 @@ create_id_map_query = f'''
         )
     '''
 
-def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 5000):
+def get_coinmarketcap_listing_latest(cmc_api_key_path: Path = Path("."), cmc_api_key_file_name: str = "cmc_api_key.txt", limit: int = 50):
 
     cmc_api_key_path = cmc_api_key_path / cmc_api_key_file_name
     with open(cmc_api_key_path, "r") as file:
@@ -322,39 +324,26 @@ def main():
 
         id_map.to_sql(cmc_id_map_table_name, conn, if_exists="replace", index=False, schema=create_id_map_query)
         latest_listing.to_sql(latest_listing_table_name, conn, if_exists="replace", index=False, schema=create_latest_listing_table_query)
+        # fix overflow bug
 
 
 
 def main2():
 
-    btc_price_history = get_all_close_price_history(14)
+    btc_price_history = get_all_close_price_history(1)
+    eth_price_history = get_all_close_price_history(1027)
 
-    time_stamp = btc_price_history["unix_timestamp"]
-    price = btc_price_history["price_usd"]
+    eth_btc_merge = pd.merge(btc_price_history, eth_price_history, on="unix_timestamp", suffixes=("_btc", "_eth"))
+    eth_btc_merge["unix_timestamp"] = pd.to_datetime(eth_btc_merge["unix_timestamp"])
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    plt.yscale('log')
-    ax.plot(time_stamp, price)
-    ax.autoscale(enable=True, axis='both')
+    eth_btc = eth_btc_merge["close_usd_eth"] / eth_btc_merge["close_usd_btc"]
 
-    # Customize y-axis tick labels
-    def price_formatter(x, pos):
-        return f"${x:,.0f}"
+    btc_price_history["unix_timestamp"] = pd.to_datetime(btc_price_history["unix_timestamp"])
+    btc_price_history["time_numeric"] = mdates.date2num(btc_price_history["unix_timestamp"])
 
-    formatter = FuncFormatter(price_formatter)
-    ax.yaxis.set_major_formatter(formatter)
-    ax.yaxis.grid(which='minor', linestyle=':', linewidth=0.5)
-
-    # Add more detail to x-axis timestamps
-    date_formatter = DateFormatter('%Y-%m-%d')
-    ax.xaxis.set_major_formatter(date_formatter)
-
-    plt.xlabel('Timestamp')
-    plt.ylabel('Price (USD)')
-    plt.title('BTC-USD')
-    plt.grid(True)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    plt.loglog(eth_btc_merge["unix_timestamp"], eth_btc)
+    # plt.xscale("log")
+    plt.title('ETHBTC')
     plt.show()
 
 if __name__ == "__main__":
@@ -368,7 +357,8 @@ if __name__ == "__main__":
 
     # print(len(filtered_crypto_info))
 
-    main()
+    # main()
+    main2()
     # crypto_id_map = get_coinmarketcap_id_map()
     # print(crypto_id_map.columns)
     # print(crypto_id_map)
