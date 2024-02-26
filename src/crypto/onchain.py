@@ -97,16 +97,16 @@ def plot_STH_LTH(price_df, realised_price_df, type):
 
 def run_script():
 
-    # price_1, STH_price_history = get_short_term_holder_realised_price_history()
+    price_1, STH_price_history = get_short_term_holder_realised_price_history()
     # price_2, LTH_price_history = get_long_term_holder_realised_price_history()
 
     # plot_STH_LTH(price_2, LTH_price_history, "LTH")
-    # plot_STH_LTH(price_1, STH_price_history, "STH")
+    plot_STH_LTH(price_1, STH_price_history, "STH")
 
-    STH_df,LTH_df = get_percent_supply_in_profit()
+    # STH_df,LTH_df = get_percent_supply_in_profit()
     
-    plt.plot(STH_df["date"], STH_df["STH 7D MA"])
-    plt.plot(LTH_df["date"], LTH_df["LTH 7D MA"])
+    # plt.plot(STH_df["date"], STH_df["STH 7D MA"])
+    # plt.plot(LTH_df["date"], LTH_df["LTH 7D MA"])
     plt.show()
 
 if __name__ == "__main__":

@@ -5,8 +5,6 @@ import pandas as pd
 import time
 from enum import Enum
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter, FuncFormatter
-from matplotlib.dates import AutoDateLocator, DateFormatter
 import sqlite3
 from pathlib import Path
 import numpy as np
@@ -240,6 +238,7 @@ def get_all_close_price_history(coin_id: int, range: str = Range_options.ALL.val
     chart_api_params = {
         "id": str(coin_id),
         "range": range,
+        # "interval": "1D"
     }
 
     optional_chart_headers = {
@@ -281,7 +280,7 @@ def create_all_price_history_database(file_path: Path, file_name: str = "crypto_
     """
 
     # create the compolete file path for the database
-    complete_file_path = file_path / file_name
+    complete_file_path = Path(file_path) / file_name
 
     # Connect to the SQLite database (or create it if it doesn't exist)
     conn = sqlite3.connect(complete_file_path)
@@ -289,17 +288,20 @@ def create_all_price_history_database(file_path: Path, file_name: str = "crypto_
     # Create a cursor object to execute SQL queries
     cursor = conn.cursor()
 
+    # cursor.execute('DROP TABLE IF EXISTS all_close_price_history')
+
     # Create the table
-    cursor.execute('''
-        CREATE TABLE all_close_price_history (
-            DataID INTEGER PRIMARY KEY,
-            crypto_id INTEGER,
-            unix_timestamp INTEGER
-            close REAL,
-            volume REAL,
-            marketcap REAL,
-            fixed_supply INTEGER
-            FOREIGN KEY (crypto_id) REFERENCES crypto_info(crypto_id)
+    cursor.execute('''          
+        CREATE TABLE IF NOT EXISTS all_close_price_history (
+        DataID INTEGER PRIMARY KEY,
+        id INTEGER,
+        unix_timestamp INTEGER,
+        close_usd REAL,
+        volume_usd REAL,
+        mc_usd REAL,
+        fixed_supply REAL,
+        supply REAL,
+        FOREIGN KEY (id) REFERENCES cmc_id_map(id)
         )
     ''')
 
@@ -307,6 +309,14 @@ def create_all_price_history_database(file_path: Path, file_name: str = "crypto_
     conn.commit()
     conn.close()
 
+def add_all_close_price_to_db(id: int, db_path: str = ".", db_name: str = "crypto_data.db"):
+
+    complete_path = Path(db_path) / db_name
+    create_all_price_history_database(file_path=db_path)
+    price_history = get_all_close_price_history(id)
+    price_history["id"] = id
+    conn = sqlite3.connect(complete_path)
+    price_history.to_sql("all_close_price_history", conn, if_exists="append", index=False)
 
 def main():
 
@@ -330,21 +340,38 @@ def main():
 
 def main2():
 
-    btc_price_history = get_all_close_price_history(1)
-    eth_price_history = get_all_close_price_history(1027)
+    add_all_close_price_to_db(1027)
 
-    eth_btc_merge = pd.merge(btc_price_history, eth_price_history, on="unix_timestamp", suffixes=("_btc", "_eth"))
-    eth_btc_merge["unix_timestamp"] = pd.to_datetime(eth_btc_merge["unix_timestamp"])
+    # btc_price_history = get_all_close_price_history(1)
+    # print(btc_price_history)
 
-    eth_btc = eth_btc_merge["close_usd_eth"] / eth_btc_merge["close_usd_btc"]
+    # # print((btc_price_history["unix_timestamp"]))
+    # time = btc_price_history["unix_timestamp"].iloc[:-1]
+    # time_interval = time.diff().mean()
+    # print(time.iloc[0])
+    # print(time_interval)
 
-    btc_price_history["unix_timestamp"] = pd.to_datetime(btc_price_history["unix_timestamp"])
-    btc_price_history["time_numeric"] = mdates.date2num(btc_price_history["unix_timestamp"])
+    # diff = price.d
+    # plt.plot(btc_price_history["unix_timestamp"], btc_price_history["mc_usd"]/btc_price_history["close_usd"])
+    # # plt.plot(btc_price_history["unix_timestamp"], btc_price_history["fixed_supply"])
+    # plt.yscale("log")
+    # plt.show()
+    # print(btc_price_history)
+    # eth_price_history = get_all_close_price_history(3890)
 
-    plt.loglog(eth_btc_merge["unix_timestamp"], eth_btc)
-    # plt.xscale("log")
-    plt.title('ETHBTC')
-    plt.show()
+    # eth_btc_merge = pd.merge(btc_price_history, eth_price_history, on="unix_timestamp", suffixes=("_btc", "_eth"))
+    # eth_btc_merge["unix_timestamp"] = pd.to_datetime(eth_btc_merge["unix_timestamp"])
+
+    # eth_btc = eth_btc_merge["close_usd_eth"] / eth_btc_merge["close_usd_btc"]
+
+    # btc_price_history["unix_timestamp"] = pd.to_datetime(btc_price_history["unix_timestamp"])
+    # btc_price_history["time_numeric"] = mdates.date2num(btc_price_history["unix_timestamp"])
+
+    # plt.plot(eth_btc_merge["unix_timestamp"], eth_btc_merge["supply_btc"])
+    # plt.plot(btc_price_history["unix_timestamp"], btc_price_history["supply"])
+    # plt.yscale("log")
+    # # plt.title('ETHBTC')
+    # plt.show()
 
 if __name__ == "__main__":
 
