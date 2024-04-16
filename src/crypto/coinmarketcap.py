@@ -3,7 +3,30 @@ import pandas as pd
 from enum import Enum
 from pathlib import Path
 import json
+import pickle
 
+# to do
+# use pickle
+# build up data stored
+# make build up mathods / queries for getting this data 
+
+# id map
+# latest listing
+# tags map
+# cetergory map
+# category data (top 1000)
+# price history (top 1000)
+    # linear interpolation between days
+
+# tools
+    # power law
+    # ratio of coins (need linear price interpolation)
+    # technical indicators
+        # rsi
+        # volatility
+    # onchain data
+
+# MINIMUM VIABLE PRODUCT
 
 # Constant paths and varaibles
 CMC_SCRIPT_PATH = Path(__file__).parent.resolve()
@@ -91,10 +114,9 @@ def get_category_id_map(cmc_api_key_path: str = CMC_API_KEY_FILE_PATH) -> pd.Dat
     data = data["data"]
     categories = pd.DataFrame(data=data)
 
-
     return categories
 
-def get_category(category_id: int):
+def get_category(category_id: str):
 
     cmc_api_key_path = Path(".") / "cmc_api_key.txt"
     with open(cmc_api_key_path, "r") as file:
@@ -108,6 +130,7 @@ def get_category(category_id: int):
     }
 
     response = requests.get(cmc_categories_url, headers=headers)
+    print(response.status_code)
 
     data = json.loads(response.text)
     data = data["data"]
@@ -176,11 +199,52 @@ def get_close_price_history(coin_id: int, range: Enum = CMC_Data_Range.ALL):
 
     return price_history_df
 
+def load_pkled_df(path: str):
+
+    path = Path(path)
+    with open(path, "rb") as file:
+        data: pd.DataFrame = pickle.load(file)
+
+    return data
+    
 
 def main():
-    ...
     
+    
+    id_map = get_id_map()
+    id_map.to_pickle(CMC_SCRIPT_PATH / "id_map.pkl")
+
+    latest_listing, tags_data = get_latest_listing()
+    latest_listing.to_pickle(CMC_SCRIPT_PATH / "latest_listing.pkl")
+    tags_data.to_pickle(CMC_SCRIPT_PATH / "tags_data.pkl")
+
+    category_id_map = get_category_id_map()
+    category_id_map.to_pickle(CMC_SCRIPT_PATH / "category_id_map.pkl")
+
+    category_example = get_category("6617dd1bd0384836b9c7bdf3")
+    category_example.to_pickle(CMC_SCRIPT_PATH / "category_example.pkl")
+
+
+
+def main_read():
+
+    # test = load_pkled_df(CMC_SCRIPT_PATH / "test.pkl")
+    # print(test.columns)
+
+    category_example = load_pkled_df(CMC_SCRIPT_PATH / "category_example.pkl")
+    # print(category_example.columns)
+    # print(category_example["num_tokens"])
+    # print(category_example["market_cap"])
+    # coin = list(category_example["coins"])
+    # print(coin[0])
+
+    coins_df = pd.json_normalize(list(category_example["coins"])[0])
+    print(coins_df)
+    
+
+
 
 if __name__ == "__main__":
 
-    main()
+    # main()
+    main_read()
