@@ -233,62 +233,55 @@ def load_pkled_df(path: str):
 
     return data
 
+def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500, save_path = None, sleep_time = 5):
+    
+    price_history_df = pd.DataFrame()
+
+    x = 1
+
+    coins_within_range = coin_id_df[coin_id_df["rank"] <= rank_limit]["id"] 
+
+    for coin_id in coins_within_range:
+        
+        coin_price_history = get_close_price_history(coin_id)
+        coin_price_history["id"] = coin_id
+
+        price_history_df = pd.concat([price_history_df, coin_price_history], ignore_index=True)
+        print(x)
+        if save_path:
+
+            price_history_df.to_pickle(save_path)
+
+        sleep(sleep_time)
+        x += 1
+
+    return price_history_df
+
 
 def main():
     
+    # btc = get_close_price_history(1)
+    # btc.to_pickle(CMC_SCRIPT_PATH / "close_price_history.pkl")
+
+    id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
+    price_history = get_all_coin_close_price_history(id_map,rank_limit=1000, save_path=CMC_SCRIPT_PATH / "price_history.pkl")
+
+    # up to 447
+
+    print(price_history)
     
-    # id_map = get_id_map()
-    # id_map.to_pickle(CMC_SCRIPT_PATH / "id_map.pkl")
-
-    # latest_listing, tags_data = get_latest_listing()
-    # latest_listing.to_pickle(CMC_SCRIPT_PATH / "latest_listing.pkl")
-    # tags_data.to_pickle(CMC_SCRIPT_PATH / "tags_data.pkl")
-
-    # category_id_map = get_category_id_map()
-    # category_id_map.to_pickle(CMC_SCRIPT_PATH / "category_id_map.pkl")
-
-    category_example = get_category("64dadf1428bd4735cb57b43a")
-    category_example.to_pickle(CMC_SCRIPT_PATH / "category_example_2.pkl")
-
-    # get_all_category_coins(category_id_map["id"][:2], save_path="category_coins.pkl")
 
 def main_read():
+    
+    id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
+    print(id_map)
 
-    # test = load_pkled_df(CMC_SCRIPT_PATH / "test.pkl")
-    # print(test.columns)
-
-
-    category_id_map = load_pkled_df(CMC_SCRIPT_PATH / "category_id_map.pkl")
-
-    # print(category_id_map.columns)
-    # print(category_id_map["num_tokens"][:10].sum())
-    # there should be 18609 total rows in category coins
-
-    # category_example = load_pkled_df(CMC_SCRIPT_PATH / "category_example.pkl")
-    # print(category_id_map["id"][0])
-
-    # print(len(category_id_map["id"]))
-    get_all_category_coins(category_id_map["id"], save_path=CMC_SCRIPT_PATH / "category_coins_final", sleep_time=5)
-
-    # category_coins_2 = load_pkled_df(CMC_SCRIPT_PATH / "category_coins_6.pkl")
-    # print(len(category_coins_2))
-    # print(category_coins_2.mode())
-    # print(category_id_map)
-
-    # spec_category = category_id_map.loc[category_id_map["id"] == "6617dd1bd0384836b9c7bdf3"]
-    # print(spec_category["num_tokens"])
-
-    # cat_example = get_category("6617dd1bd0384836b9c7bdf3")
-    # cat_example.to_pickle(CMC_SCRIPT_PATH / "example_example.pkl")
-
-    # cat_example = load_pkled_df(CMC_SCRIPT_PATH / "example_example.pkl")
-    # example_list = list(cat_example["coins"])[0]
-    # for x in example_list:
-    #     print(x["name"])
-
-    # print(category_coins_2.iloc[1])
-
-    # print(category_coins_2)
+    # latest_listing = load_pkled_df(CMC_SCRIPT_PATH / "latest_listing.pkl")
+    # print(latest_listing.columns)
+    # print(latest_listing)
+    
+    # btc = load_pkled_df(CMC_SCRIPT_PATH  / "close_price_history.pkl")
+    # print(btc)
 
 
 
@@ -296,5 +289,5 @@ def main_read():
 
 if __name__ == "__main__":
 
-    # main()
-    main_read()
+    main()
+    # main_read()
