@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import pickle
 from time import sleep
-
+import backoff
 # to do
 # use pickle
 # build up data stored
@@ -142,25 +142,26 @@ def get_category(category_id: str):
 def get_all_category_coins(category_ids, sleep_time = 5, save_path = None):
 
     category_coins_df = pd.DataFrame()
+    x = 1
 
     for category in category_ids:
 
         category_df = get_category(category)
         sleep(sleep_time)
+        print(x)
 
-        category_coins_df_temp = pd.DataFrame()
+        coins_list = list(category_df["coins"])[0]
+        coins_df = pd.json_normalize(coins_list, max_level=0)
+        coins_df["category_id"] = category
+        coins_df = coins_df[["category_id", "id"]]
 
-        for coin in list(category_df["coins"]):
-
-            category_coins_df_temp = pd.concat([category_coins_df,pd.json_normalize(coin, max_level=0)], ignore_index=False)
-            category_coins_df_temp["category_id"] = category
-            category_coins_df_temp = category_coins_df_temp.drop(["platform", "quote", "tags"], axis=1)
-
-            category_coins_df = pd.concat([category_coins_df, category_coins_df_temp])
-            category_coins_df = category_coins_df.reset_index(drop=True)
+        category_coins_df = pd.concat([category_coins_df, coins_df], ignore_index=True)
+        category_coins_df = category_coins_df.reset_index(drop=True)
 
         if save_path:
-            category_coins_df.to_pickle(save_path)
+            category_coins_df.to_pickle(f"{save_path}.pkl")
+        
+        x  += 1
 
     return category_coins_df
 
@@ -236,20 +237,20 @@ def load_pkled_df(path: str):
 def main():
     
     
-    id_map = get_id_map()
-    id_map.to_pickle(CMC_SCRIPT_PATH / "id_map.pkl")
+    # id_map = get_id_map()
+    # id_map.to_pickle(CMC_SCRIPT_PATH / "id_map.pkl")
 
-    latest_listing, tags_data = get_latest_listing()
-    latest_listing.to_pickle(CMC_SCRIPT_PATH / "latest_listing.pkl")
-    tags_data.to_pickle(CMC_SCRIPT_PATH / "tags_data.pkl")
+    # latest_listing, tags_data = get_latest_listing()
+    # latest_listing.to_pickle(CMC_SCRIPT_PATH / "latest_listing.pkl")
+    # tags_data.to_pickle(CMC_SCRIPT_PATH / "tags_data.pkl")
 
-    category_id_map = get_category_id_map()
-    category_id_map.to_pickle(CMC_SCRIPT_PATH / "category_id_map.pkl")
+    # category_id_map = get_category_id_map()
+    # category_id_map.to_pickle(CMC_SCRIPT_PATH / "category_id_map.pkl")
 
-    category_example = get_category("6617dd1bd0384836b9c7bdf3")
-    category_example.to_pickle(CMC_SCRIPT_PATH / "category_example.pkl")
+    category_example = get_category("64dadf1428bd4735cb57b43a")
+    category_example.to_pickle(CMC_SCRIPT_PATH / "category_example_2.pkl")
 
-    get_all_category_coins(category_id_map["id"][:2], save_path="category_coins.pkl")
+    # get_all_category_coins(category_id_map["id"][:2], save_path="category_coins.pkl")
 
 def main_read():
 
@@ -259,16 +260,36 @@ def main_read():
 
     category_id_map = load_pkled_df(CMC_SCRIPT_PATH / "category_id_map.pkl")
 
+    # print(category_id_map.columns)
+    # print(category_id_map["num_tokens"][:10].sum())
+    # there should be 18609 total rows in category coins
 
     # category_example = load_pkled_df(CMC_SCRIPT_PATH / "category_example.pkl")
     # print(category_id_map["id"][0])
 
-    # print(len(category_id_map))
-    get_all_category_coins(category_id_map["id"], save_path=CMC_SCRIPT_PATH / "category_coins_3.pkl")
+    # print(len(category_id_map["id"]))
+    get_all_category_coins(category_id_map["id"], save_path=CMC_SCRIPT_PATH / "category_coins_final", sleep_time=5)
 
-    # category_coins_2 = load_pkled_df(CMC_SCRIPT_PATH / "category_coins_2.pkl")
+    # category_coins_2 = load_pkled_df(CMC_SCRIPT_PATH / "category_coins_6.pkl")
+    # print(len(category_coins_2))
+    # print(category_coins_2.mode())
+    # print(category_id_map)
+
+    # spec_category = category_id_map.loc[category_id_map["id"] == "6617dd1bd0384836b9c7bdf3"]
+    # print(spec_category["num_tokens"])
+
+    # cat_example = get_category("6617dd1bd0384836b9c7bdf3")
+    # cat_example.to_pickle(CMC_SCRIPT_PATH / "example_example.pkl")
+
+    # cat_example = load_pkled_df(CMC_SCRIPT_PATH / "example_example.pkl")
+    # example_list = list(cat_example["coins"])[0]
+    # for x in example_list:
+    #     print(x["name"])
+
+    # print(category_coins_2.iloc[1])
 
     # print(category_coins_2)
+
 
 
 
