@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import pickle
 from time import sleep
-import backoff
+import matplotlib.pyplot as plt
 # to do
 # use pickle
 # build up data stored
@@ -257,6 +257,24 @@ def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500,
 
     return price_history_df
 
+def interpolate_price_history(price_history_df: pd.DataFrame):
+
+    # new_price_history_df = pd.DataFrame()
+    # coins = price_history_df["id"].unique()
+    price_history_df.set_index("unix_timestamp", inplace=True)
+    price_history_df = price_history_df.groupby("id").apply(lambda x: x.resample("D").interpolate())
+    price_history_df.reset_index(level="id", drop=True, inplace=True)
+
+    return price_history_df
+    # print(price_history_df)
+    
+    
+    # for coin_id in coins:
+    #     coin_price_history = price_history_df[price_history_df["id"] == coin_id]
+
+
+
+
 
 def main():
     
@@ -264,7 +282,7 @@ def main():
     # btc.to_pickle(CMC_SCRIPT_PATH / "close_price_history.pkl")
 
     id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
-    price_history = get_all_coin_close_price_history(id_map,rank_limit=1000, save_path=CMC_SCRIPT_PATH / "price_history.pkl")
+    price_history = get_all_coin_close_price_history(id_map,rank_limit=2, save_path=CMC_SCRIPT_PATH / "price_history.pkl")
 
     # up to 447
 
@@ -273,8 +291,30 @@ def main():
 
 def main_read():
     
-    id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
-    print(id_map)
+    # id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
+    # print(id_map)
+
+    # all_price_history = load_pkled_df(CMC_SCRIPT_PATH / "price_history.pkl")
+    # all_price_history = interpolate_price_history(all_price_history)
+    
+    # all_price_history.to_pickle(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
+
+    btc_eth_data: pd.DataFrame = load_pkled_df(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
+    btc_eth_data.reset_index(level="id", drop=True, inplace=True) # impotant add to the main function
+    btc = btc_eth_data[btc_eth_data["id"] == 1]
+    eth = btc_eth_data[btc_eth_data["id"] == 1027]
+    eth_btc = eth.div(btc, axis="index")
+    eth_btc = eth_btc["close_usd"].dropna()
+
+    eth_btc.plot(loglog=True)
+    plt.show()
+
+    # TO DO
+    # update interp function
+        # fix the current week being broken
+    # get all price data for top 1000 coins (possibly add proper sleep with backoff / try again something simple)
+    # use interp on all
+    # what
 
     # latest_listing = load_pkled_df(CMC_SCRIPT_PATH / "latest_listing.pkl")
     # print(latest_listing.columns)
@@ -289,5 +329,5 @@ def main_read():
 
 if __name__ == "__main__":
 
-    main()
-    # main_read()
+    # main()
+    main_read()
