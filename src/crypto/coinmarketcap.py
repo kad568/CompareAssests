@@ -6,6 +6,9 @@ import json
 import pickle
 from time import sleep
 import matplotlib.pyplot as plt
+from functools import wraps
+
+
 # to do
 # use pickle
 # build up data stored
@@ -33,6 +36,25 @@ import matplotlib.pyplot as plt
 CMC_SCRIPT_PATH = Path(__file__).parent.resolve()
 
 CMC_API_KEY_FILE_PATH = CMC_SCRIPT_PATH / "cmc_api_key.txt"
+
+def retry(max_attempts=5, initial_sleep=1):
+    def decorator_retry(func):
+        @wraps(func)
+        def wrapper_retry(*args, **kwargs):
+            sleep_time = initial_sleep
+            for attempt in range(max_attempts):
+                try:
+                    result = func(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        raise e
+                    print(f"Attempt {attempt + 1} failed. Retrying in {sleep_time} seconds.")
+                    sleep(sleep_time)
+                    sleep_time *= 2
+        return wrapper_retry
+    return decorator_retry
+
 
 def get_id_map(cmc_api_key_file_path: str = CMC_API_KEY_FILE_PATH) -> pd.DataFrame:
 
@@ -218,10 +240,12 @@ def get_close_price_history(coin_id: int, range: Enum = CMC_Data_Range.ALL):
     price_history_df[["close_usd", "volume_usd", "mc_usd", "fixed_supply", "supply"]] = price_history_df["chart_data_list"].apply(pd.Series)
 
     # Convert Unix timestamp to datetime
-    price_history_df['unix_timestamp'] = pd.to_datetime(price_history_df['unix_timestamp'], unit='s')
+    price_history_df['unix_timestamp'] = pd.to_datetime(price_history_df['unix_timestamp'], unit="s").dt.date # this removes the time stamp part of the date, if I want to know this use another method 2024-04-23 19:24:48 -> 2024-04-23
 
     # Drop the original 'price_history_df' column
     price_history_df = price_history_df.drop(columns=["chart_data_list"])
+
+    price_history_df["id"] = coin_id
 
     return price_history_df
 
@@ -233,7 +257,7 @@ def load_pkled_df(path: str):
 
     return data
 
-def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500, save_path = None, sleep_time = 5):
+def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500, save_path = None, sleep_time = 2, attemps = 10):
     
     price_history_df = pd.DataFrame()
 
@@ -243,9 +267,18 @@ def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500,
 
     for coin_id in coins_within_range:
         
-        coin_price_history = get_close_price_history(coin_id)
-        coin_price_history["id"] = coin_id
-
+        # ADD FOR LOOP WITH BREAK FOR TRY AND EXCEPT AND BACKING OFF METHOD - Done (att)
+        for att in range(attemps):
+            try:
+                coin_price_history = get_close_price_history(coin_id)
+                break
+            except Exception as e:
+                if att == attemps - 1:
+                    raise e
+                print(f"attempt failed, now sleeping for {sleep_time}s")
+                sleep_time *= 2
+                sleep(sleep_time)
+        
         price_history_df = pd.concat([price_history_df, coin_price_history], ignore_index=True)
         print(x)
         if save_path:
@@ -259,20 +292,12 @@ def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500,
 
 def interpolate_price_history(price_history_df: pd.DataFrame):
 
-    # new_price_history_df = pd.DataFrame()
-    # coins = price_history_df["id"].unique()
     price_history_df.set_index("unix_timestamp", inplace=True)
-    price_history_df = price_history_df.groupby("id").apply(lambda x: x.resample("D").interpolate())
+    price_history_df.index = pd.to_datetime(price_history_df.index)
+    price_history_df = price_history_df.groupby("id", group_keys=False).apply(lambda x: x.resample("D").interpolate()) # time can not be the index as there are several dups, create a new id for the df
     price_history_df.reset_index(level="id", drop=True, inplace=True)
 
     return price_history_df
-    # print(price_history_df)
-    
-    
-    # for coin_id in coins:
-    #     coin_price_history = price_history_df[price_history_df["id"] == coin_id]
-
-
 
 
 
@@ -291,7 +316,7 @@ def main():
 
 def main_read():
     
-    # id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
+    id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
     # print(id_map)
 
     # all_price_history = load_pkled_df(CMC_SCRIPT_PATH / "price_history.pkl")
@@ -299,19 +324,41 @@ def main_read():
     
     # all_price_history.to_pickle(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
 
-    btc_eth_data: pd.DataFrame = load_pkled_df(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
-    btc_eth_data.reset_index(level="id", drop=True, inplace=True) # impotant add to the main function
-    btc = btc_eth_data[btc_eth_data["id"] == 1]
-    eth = btc_eth_data[btc_eth_data["id"] == 1027]
-    eth_btc = eth.div(btc, axis="index")
-    eth_btc = eth_btc["close_usd"].dropna()
+    # btc = get_close_price_history(1)
+    # btc.to_pickle(CMC_SCRIPT_PATH / "btc_all_close_price_history.pkl")
+    # print(btc.tail())
 
-    eth_btc.plot(loglog=True)
-    plt.show()
+    # all_coin_price_history = get_all_coin_close_price_history(id_map,rank_limit=1000, save_path=CMC_SCRIPT_PATH / "coin_price_history_index.pkl")
+
+    # print(all_coin_price_history)
+    index = load_pkled_df(CMC_SCRIPT_PATH / "coin_price_history_index.pkl")
+    # print(index)
+    index = interpolate_price_history(index)
+    index.to_pickle(CMC_SCRIPT_PATH / "coin_price_history_index_interp.pkl")
+    print(index)
+
+    # problem is that the freequency is less than a week
+    # identify problem week
+    # custom interp for this range
+
+
+
+
+
+    # btc_eth_data: pd.DataFrame = load_pkled_df(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
+    # btc_eth_data.reset_index(level="id", drop=True, inplace=True) # impotant add to the main function
+    # btc = btc_eth_data[btc_eth_data["id"] == 1]
+    # eth = btc_eth_data[btc_eth_data["id"] == 1027]
+    # eth_btc = eth.div(btc, axis="index")
+    # eth_btc = eth_btc["close_usd"].dropna()
+
+    # eth_btc.plot(loglog=True)
+    # plt.show()
+
+
 
     # TO DO
-    # update interp function
-        # fix the current week being broken
+    # fix the interp function, removce time as the index as there will obviously be duplicates
     # get all price data for top 1000 coins (possibly add proper sleep with backoff / try again something simple)
     # use interp on all
     # what
