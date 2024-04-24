@@ -10,12 +10,8 @@ from functools import wraps
 
 
 # to do
-# use pickle
-# build up data stored
 # make build up mathods / queries for getting this data 
 
-# id map
-# latest listing
 # tags map
 # cetergory map
 # category data (top 1000)
@@ -240,8 +236,7 @@ def get_close_price_history(coin_id: int, range: Enum = CMC_Data_Range.ALL):
     price_history_df[["close_usd", "volume_usd", "mc_usd", "fixed_supply", "supply"]] = price_history_df["chart_data_list"].apply(pd.Series)
 
     # Convert Unix timestamp to datetime
-    price_history_df['unix_timestamp'] = pd.to_datetime(price_history_df['unix_timestamp'], unit="s").dt.date # this removes the time stamp part of the date, if I want to know this use another method 2024-04-23 19:24:48 -> 2024-04-23
-
+    price_history_df['unix_timestamp'] = pd.to_datetime(price_history_df['unix_timestamp'], unit="s") # reverted back to normal method to keep time data as resample.mean() removes this anyway
     # Drop the original 'price_history_df' column
     price_history_df = price_history_df.drop(columns=["chart_data_list"])
 
@@ -292,14 +287,18 @@ def get_all_coin_close_price_history(coin_id_df: pd.DataFrame, rank_limit = 500,
 
 def interpolate_price_history(price_history_df: pd.DataFrame):
 
-    price_history_df.set_index("unix_timestamp", inplace=True)
-    price_history_df.index = pd.to_datetime(price_history_df.index)
-    price_history_df = price_history_df.groupby("id", group_keys=False).apply(lambda x: x.resample("D").interpolate()) # time can not be the index as there are several dups, create a new id for the df
-    price_history_df.reset_index(level="id", drop=True, inplace=True)
+    interp_dfs = []
 
-    return price_history_df
+    for _, group_df in price_history_df.groupby("id"):
+        group_df["unix_timestamp"] = pd.to_datetime(group_df["unix_timestamp"])
+        interp_group = group_df.resample("D", on="unix_timestamp").mean().interpolate()
+        interp_group = interp_group.reset_index()
+        interp_dfs.append(interp_group)
 
+    interp_df = pd.concat(interp_dfs)
+    interp_df = interp_df.reset_index(drop=True)
 
+    return interp_df
 
 def main():
     
@@ -317,31 +316,12 @@ def main():
 def main_read():
     
     id_map = load_pkled_df(CMC_SCRIPT_PATH / "id_map.pkl")
-    # print(id_map)
 
-    # all_price_history = load_pkled_df(CMC_SCRIPT_PATH / "price_history.pkl")
-    # all_price_history = interpolate_price_history(all_price_history)
-    
-    # all_price_history.to_pickle(CMC_SCRIPT_PATH / "btc_eth_daily_price_history.pkl")
 
-    # btc = get_close_price_history(1)
-    # btc.to_pickle(CMC_SCRIPT_PATH / "btc_all_close_price_history.pkl")
-    # print(btc.tail())
-
-    # all_coin_price_history = get_all_coin_close_price_history(id_map,rank_limit=1000, save_path=CMC_SCRIPT_PATH / "coin_price_history_index.pkl")
-
-    # print(all_coin_price_history)
     index = load_pkled_df(CMC_SCRIPT_PATH / "coin_price_history_index.pkl")
-    # print(index)
     index = interpolate_price_history(index)
     index.to_pickle(CMC_SCRIPT_PATH / "coin_price_history_index_interp.pkl")
     print(index)
-
-    # problem is that the freequency is less than a week
-    # identify problem week
-    # custom interp for this range
-
-
 
 
 
@@ -358,10 +338,9 @@ def main_read():
 
 
     # TO DO
-    # fix the interp function, removce time as the index as there will obviously be duplicates
-    # get all price data for top 1000 coins (possibly add proper sleep with backoff / try again something simple)
+    # get all price data for top 1000 coins (possibly add proper sleep with backoff / try again something simple) # back off does not work, maybe proxy needed / other startegy, cookies???
     # use interp on all
-    # what
+    # then what???????????????
 
     # latest_listing = load_pkled_df(CMC_SCRIPT_PATH / "latest_listing.pkl")
     # print(latest_listing.columns)
